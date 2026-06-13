@@ -1,10 +1,11 @@
-/* NetHack 3.7	attrib.c	$NHDT-Date: 1777000050 2026/04/23 19:07:30 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.137 $ */
+/* NetHack 3.6	attrib.c	$NHDT-Date: 1575245050 2019/12/02 00:04:10 $  $NHDT-Branch: NetHack-3.6 $:$NHDT-Revision: 1.66 $ */
 /*      Copyright 1988, 1989, 1990, 1992, M. Stephenson           */
 /* NetHack may be freely redistributed.  See license for details. */
 
 /*  attribute modification routines. */
 
 #include "hack.h"
+#include <ctype.h>
 
 /* part of the output on gain or loss of attribute */
 static const char
@@ -13,9 +14,7 @@ static const char
     *const minusattr[] = { "weak",    "stupid",
                            "foolish", "clumsy",
                            "fragile", "repulsive" };
-/* also used by enlightenment in insight.c for non-abbreviated status info */
-extern const char *const attrname[6];
-
+/* also used by enlightenment for non-abbreviated status info */
 const char
     *const attrname[] = { "strength", "intelligence", "wisdom",
                           "dexterity", "constitution", "charisma" };
@@ -24,9 +23,29 @@ static const struct innate {
     schar ulevel;
     long *ability;
     const char *gainstr, *losestr;
-} arc_abil[] = { { 1, &(HSearching), "", "" },
-                 { 5, &(HStealth), "stealthy", "" },
-                 { 10, &(HFast), "quick", "slow" },
+} arc_abil[] = { { 1, &HInfravision, "", "" },
+                 { 1, &HFire_resistance, "You feel warm.", "You feel cold." },
+                 { 1, &(HCold_resistance), "You feel cool.", "You feel warm." },
+                 { 1, &(HSleep_resistance), "awake", "tired" },
+                 { 1, &(HPoison_resistance), "You feel healthy.", "You feel sick." },
+                 { 1, &(HTeleport_control), "You feel controlled.", "You feel uncontrolled." },
+                 //{ 1, &HLevitation, "You float in the air.", "You descend." },
+                 { 1, &HMagical_breathing, "You can breathe air.", "You can't breathe." },
+                 { 1, &HRegeneration, "You feel vital.", "You feel less vital." },
+                 { 1, &HEnergy_regeneration, "You feel energized.", "You feel drained." },
+                 { 1, &HPolymorph_control, "You control your form.", "You lose control." },
+                 { 1, &HAcid_resistance, "You feel acidic.", "You feel basic." },
+                 { 1, &HStone_resistance, "You feel stony.", "You feel soft." },
+                 { 1, &HShock_resistance, "You feel grounded.", "You feel shocked." },
+                 { 1, &HDisint_resistance, "You feel firm.", "You feel fragile." },
+                 { 1, &HDrain_resistance, "You feel stable.", "You feel drained." },
+                 { 1, &HWarning, "You feel wary.", "You feel unwary." },
+                 { 1, &HWarn_of_mon, "You feel watchful.", "You feel unwatchful." },
+                 { 1, &HUndead_warning, "You sense the dead.", "You no longer sense the dead." },
+                 { 1, &HTelepat, "You feel telepathic.", "You feel non-telepathic." },
+                 { 1, &HSearching, "You feel alert.", "You feel unalert." },
+                 { 1, &HSee_invisible, "You see invisibly.", "You see clearly." },
+                 { 1, &HDetect_monsters, "You sense monsters.", "You sense nothing." },
                  { 0, 0, 0, 0 } },
 
   bar_abil[] = { { 1, &(HPoison_resistance), "", "" },
@@ -38,8 +57,29 @@ static const struct innate {
                  { 15, &(HWarning), "sensitive", "" },
                  { 0, 0, 0, 0 } },
 
-  hea_abil[] = { { 1, &(HPoison_resistance), "", "" },
-                 { 15, &(HWarning), "sensitive", "" },
+  hea_abil[] = { { 1, &HInfravision, "", "" },
+                 { 1, &HFire_resistance, "You feel warm.", "You feel cold." },
+                 { 1, &(HCold_resistance), "You feel cool.", "You feel warm." },
+                 { 1, &(HSleep_resistance), "awake", "tired" },
+                 { 1, &(HPoison_resistance), "You feel healthy.", "You feel sick." },
+                 { 1, &(HTeleport_control), "You feel controlled.", "You feel uncontrolled." },
+                 //{ 1, &HLevitation, "You float in the air.", "You descend." },
+                 { 1, &HMagical_breathing, "You can breathe air.", "You can't breathe." },
+                 { 1, &HRegeneration, "You feel vital.", "You feel less vital." },
+                 { 1, &HEnergy_regeneration, "You feel energized.", "You feel drained." },
+                 { 1, &HPolymorph_control, "You control your form.", "You lose control." },
+                 { 1, &HAcid_resistance, "You feel acidic.", "You feel basic." },
+                 { 1, &HStone_resistance, "You feel stony.", "You feel soft." },
+                 { 1, &HShock_resistance, "You feel grounded.", "You feel shocked." },
+                 { 1, &HDisint_resistance, "You feel firm.", "You feel fragile." },
+                 { 1, &HDrain_resistance, "You feel stable.", "You feel drained." },
+                 { 1, &HWarning, "You feel wary.", "You feel unwary." },
+                 { 1, &HWarn_of_mon, "You feel watchful.", "You feel unwatchful." },
+                 { 1, &HUndead_warning, "You sense the dead.", "You no longer sense the dead." },
+                 { 1, &HTelepat, "You feel telepathic.", "You feel non-telepathic." },
+                 { 1, &HSearching, "You feel alert.", "You feel unalert." },
+                 { 1, &HSee_invisible, "You see invisibly.", "You see clearly." },
+                 { 1, &HDetect_monsters, "You sense monsters.", "You sense nothing." },
                  { 0, 0, 0, 0 } },
 
   kni_abil[] = { { 7, &(HFast), "quick", "slow" }, { 0, 0, 0, 0 } },
@@ -57,8 +97,29 @@ static const struct innate {
                  { 17, &(HTeleport_control), "controlled", "uncontrolled" },
                  { 0, 0, 0, 0 } },
 
-  pri_abil[] = { { 15, &(HWarning), "sensitive", "" },
-                 { 20, &(HFire_resistance), "cool", "warmer" },
+  pri_abil[] = { { 1, &HInfravision, "", "" },
+                 { 1, &HFire_resistance, "You feel warm.", "You feel cold." },
+                 { 1, &(HCold_resistance), "You feel cool.", "You feel warm." },
+                 { 1, &(HSleep_resistance), "awake", "tired" },
+                 { 1, &(HPoison_resistance), "You feel healthy.", "You feel sick." },
+                 { 1, &(HTeleport_control), "You feel controlled.", "You feel uncontrolled." },
+                 //{ 1, &HLevitation, "You float in the air.", "You descend." },
+                 { 1, &HMagical_breathing, "You can breathe air.", "You can't breathe." },
+                 { 1, &HRegeneration, "You feel vital.", "You feel less vital." },
+                 { 1, &HEnergy_regeneration, "You feel energized.", "You feel drained." },
+                 { 1, &HPolymorph_control, "You control your form.", "You lose control." },
+                 { 1, &HAcid_resistance, "You feel acidic.", "You feel basic." },
+                 { 1, &HStone_resistance, "You feel stony.", "You feel soft." },
+                 { 1, &HShock_resistance, "You feel grounded.", "You feel shocked." },
+                 { 1, &HDisint_resistance, "You feel firm.", "You feel fragile." },
+                 { 1, &HDrain_resistance, "You feel stable.", "You feel drained." },
+                 { 1, &HWarning, "You feel wary.", "You feel unwary." },
+                 { 1, &HWarn_of_mon, "You feel watchful.", "You feel unwatchful." },
+                 { 1, &HUndead_warning, "You sense the dead.", "You no longer sense the dead." },
+                 { 1, &HTelepat, "You feel telepathic.", "You feel non-telepathic." },
+                 { 1, &HSearching, "You feel alert.", "You feel unalert." },
+                 { 1, &HSee_invisible, "You see invisibly.", "You see clearly." },
+                 { 1, &HDetect_monsters, "You sense monsters.", "You sense nothing." },
                  { 0, 0, 0, 0 } },
 
   ran_abil[] = { { 1, &(HSearching), "", "" },
@@ -74,48 +135,155 @@ static const struct innate {
                  { 15, &(HStealth), "stealthy", "" },
                  { 0, 0, 0, 0 } },
 
-  tou_abil[] = { { 10, &(HSearching), "perceptive", "" },
-                 { 20, &(HPoison_resistance), "hardy", "" },
+  tou_abil[] = { { 1, &HInfravision, "", "" },
+                 { 1, &HFire_resistance, "You feel warm.", "You feel cold." },
+                 { 1, &(HCold_resistance), "You feel cool.", "You feel warm." },
+                 { 1, &(HSleep_resistance), "awake", "tired" },
+                 { 1, &(HPoison_resistance), "You feel healthy.", "You feel sick." },
+                 { 1, &(HTeleport_control), "You feel controlled.", "You feel uncontrolled." },
+                 //{ 1, &HLevitation, "You float in the air.", "You descend." },
+                 { 1, &HMagical_breathing, "You can breathe air.", "You can't breathe." },
+                 { 1, &HRegeneration, "You feel vital.", "You feel less vital." },
+                 { 1, &HEnergy_regeneration, "You feel energized.", "You feel drained." },
+                 { 1, &HPolymorph_control, "You control your form.", "You lose control." },
+                 { 1, &HAcid_resistance, "You feel acidic.", "You feel basic." },
+                 { 1, &HStone_resistance, "You feel stony.", "You feel soft." },
+                 { 1, &HShock_resistance, "You feel grounded.", "You feel shocked." },
+                 { 1, &HDisint_resistance, "You feel firm.", "You feel fragile." },
+                 { 1, &HDrain_resistance, "You feel stable.", "You feel drained." },
+                 { 1, &HWarning, "You feel wary.", "You feel unwary." },
+                 { 1, &HWarn_of_mon, "You feel watchful.", "You feel unwatchful." },
+                 { 1, &HUndead_warning, "You sense the dead.", "You no longer sense the dead." },
+                 { 1, &HTelepat, "You feel telepathic.", "You feel non-telepathic." },
+                 { 1, &HSearching, "You feel alert.", "You feel unalert." },
+                 { 1, &HSee_invisible, "You see invisibly.", "You see clearly." },
+                 { 1, &HDetect_monsters, "You sense monsters.", "You sense nothing." },
                  { 0, 0, 0, 0 } },
 
-  val_abil[] = { { 1, &(HCold_resistance), "", "" },
-                 { 3, &(HStealth), "stealthy", "" },
-                 { 7, &(HFast), "quick", "slow" },
+  val_abil[] = { { 1, &HInfravision, "", "" },
+                 { 1, &HFire_resistance, "You feel warm.", "You feel cold." },
+                 { 1, &(HCold_resistance), "You feel cool.", "You feel warm." },
+                 { 1, &(HSleep_resistance), "awake", "tired" },
+                 { 1, &(HPoison_resistance), "You feel healthy.", "You feel sick." },
+                 { 1, &(HTeleport_control), "You feel controlled.", "You feel uncontrolled." },
+                 //{ 1, &HLevitation, "You float in the air.", "You descend." },
+                 { 1, &HMagical_breathing, "You can breathe air.", "You can't breathe." },
+                 { 1, &HRegeneration, "You feel vital.", "You feel less vital." },
+                 { 1, &HEnergy_regeneration, "You feel energized.", "You feel drained." },
+                 { 1, &HPolymorph_control, "You control your form.", "You lose control." },
+                 { 1, &HAcid_resistance, "You feel acidic.", "You feel basic." },
+                 { 1, &HStone_resistance, "You feel stony.", "You feel soft." },
+                 { 1, &HShock_resistance, "You feel grounded.", "You feel shocked." },
+                 { 1, &HDisint_resistance, "You feel firm.", "You feel fragile." },
+                 { 1, &HDrain_resistance, "You feel stable.", "You feel drained." },
+                 { 1, &HWarning, "You feel wary.", "You feel unwary." },
+                 { 1, &HWarn_of_mon, "You feel watchful.", "You feel unwatchful." },
+                 { 1, &HUndead_warning, "You sense the dead.", "You no longer sense the dead." },
+                 { 1, &HTelepat, "You feel telepathic.", "You feel non-telepathic." },
+                 { 1, &HSearching, "You feel alert.", "You feel unalert." },
+                 { 1, &HSee_invisible, "You see invisibly.", "You see clearly." },
+                 { 1, &HDetect_monsters, "You sense monsters.", "You sense nothing." },
                  { 0, 0, 0, 0 } },
 
-  wiz_abil[] = { { 15, &(HWarning), "sensitive", "" },
-                 { 17, &(HTeleport_control), "controlled", "uncontrolled" },
+  wiz_abil[] = { { 1, &HInfravision, "", "" },
+                 { 1, &HFire_resistance, "You feel warm.", "You feel cold." },
+                 { 1, &(HCold_resistance), "You feel cool.", "You feel warm." },
+                 { 1, &(HSleep_resistance), "awake", "tired" },
+                 { 1, &(HPoison_resistance), "You feel healthy.", "You feel sick." },
+                 { 1, &(HTeleport_control), "You feel controlled.", "You feel uncontrolled." },
+                 //{ 1, &HLevitation, "You float in the air.", "You descend." },
+                 { 1, &HMagical_breathing, "You can breathe air.", "You can't breathe." },
+                 { 1, &HRegeneration, "You feel vital.", "You feel less vital." },
+                 { 1, &HEnergy_regeneration, "You feel energized.", "You feel drained." },
+                 { 1, &HPolymorph_control, "You control your form.", "You lose control." },
+                 { 1, &HAcid_resistance, "You feel acidic.", "You feel basic." },
+                 { 1, &HStone_resistance, "You feel stony.", "You feel soft." },
+                 { 1, &HShock_resistance, "You feel grounded.", "You feel shocked." },
+                 { 1, &HDisint_resistance, "You feel firm.", "You feel fragile." },
+                 { 1, &HDrain_resistance, "You feel stable.", "You feel drained." },
+                 { 1, &HWarning, "You feel wary.", "You feel unwary." },
+                 { 1, &HWarn_of_mon, "You feel watchful.", "You feel unwatchful." },
+                 { 1, &HUndead_warning, "You sense the dead.", "You no longer sense the dead." },
+                 { 1, &HTelepat, "You feel telepathic.", "You feel non-telepathic." },
+                 { 1, &HSearching, "You feel alert.", "You feel unalert." },
+                 { 1, &HSee_invisible, "You see invisibly.", "You see clearly." },
+                 { 1, &HDetect_monsters, "You sense monsters.", "You sense nothing." },
                  { 0, 0, 0, 0 } },
 
   /* Intrinsics conferred by race */
   dwa_abil[] = { { 1, &HInfravision, "", "" },
+                 { 1, &HFire_resistance, "You feel warm.", "You feel cold." },
+                 { 1, &(HCold_resistance), "You feel cool.", "You feel warm." },
+                 { 1, &(HSleep_resistance), "awake", "tired" },
+                 { 1, &(HPoison_resistance), "You feel healthy.", "You feel sick." },
+                 { 1, &(HTeleport_control), "You feel controlled.", "You feel uncontrolled." },
+                 //{ 1, &HLevitation, "You float in the air.", "You descend." },
+                 { 1, &HMagical_breathing, "You can breathe air.", "You can't breathe." },
+                 { 1, &HRegeneration, "You feel vital.", "You feel less vital." },
+                 { 1, &HEnergy_regeneration, "You feel energized.", "You feel drained." },
+                 { 1, &HPolymorph_control, "You control your form.", "You lose control." },
+                 { 1, &HAcid_resistance, "You feel acidic.", "You feel basic." },
+                 { 1, &HStone_resistance, "You feel stony.", "You feel soft." },
+                 { 1, &HShock_resistance, "You feel grounded.", "You feel shocked." },
+                 { 1, &HDisint_resistance, "You feel firm.", "You feel fragile." },
+                 { 1, &HDrain_resistance, "You feel stable.", "You feel drained." },
+                 { 1, &HWarning, "You feel wary.", "You feel unwary." },
+                 { 1, &HWarn_of_mon, "You feel watchful.", "You feel unwatchful." },
+                 { 1, &HUndead_warning, "You sense the dead.", "You no longer sense the dead." },
+                 { 1, &HTelepat, "You feel telepathic.", "You feel non-telepathic." },
+                 { 1, &HSearching, "You feel alert.", "You feel unalert." },
+                 { 1, &HSee_invisible, "You see invisibly.", "You see clearly." },
+                 { 1, &HDetect_monsters, "You sense monsters.", "You sense nothing." },
                  { 0, 0, 0, 0 } },
 
-elf_abil[] = { { 1, &HInfravision, “”, “” },
-               { 1, &HFire_resistance, “You feel warm.”, “You feel cold.” },
-               { 1, &(HCold_resistance), “You feel cool.”, “You feel warm.” },
-               { 1, &(HSleep_resistance), “awake”, “tired” },
-               { 1, &(HPoison_resistance), “You feel healthy.”, “You feel sick.” },
-               { 1, &(HTeleport_control), “You feel controlled.”, “You feel uncontrolled.” }, 
-               { 1, &HMagical_breathing, “You can breathe air.”, “You can’t breathe.” },
-               { 1, &HRegeneration, “You feel vital.”, “You feel less vital.” },
-               { 1, &HEnergy_regeneration, “You feel energized.”, “You feel drained.” },
-               { 1, &HPolymorph_control, “You control your form.”, “You lose control.” },
-               { 1, &HAcid_resistance, “You feel acidic.”, “You feel basic.” },
-               { 1, &HStone_resistance, “You feel stony.”, “You feel soft.” },
-               { 1, &HShock_resistance, “You feel grounded.”, “You feel shocked.” },
-               { 1, &HDisint_resistance, “You feel firm.”, “You feel fragile.” },
-               { 1, &HDrain_resistance, “You feel stable.”, “You feel drained.” },
-               { 1, &HWarning, “You feel wary.”, “You feel unwary.” },
-               { 1, &HWarn_of_mon, “You feel watchful.”, “You feel unwatchful.” },
-               { 1, &HUndead_warning, “You sense the dead.”, “You no longer sense the dead.” },
-               { 1, &HTelepat, “You feel telepathic.”, “You feel non-telepathic.” },
-               { 1, &HSearching, “You feel alert.”, “You feel unalert.” },
-               { 1, &HSee_invisible, “You see invisibly.”, “You see clearly.” }, 
-               { 1, &HDetect_monsters, “You sense monsters.”, “You sense nothing.” },
-               { 0, 0, 0, 0 } },
+  elf_abil[] = { { 1, &HInfravision, "", "" },
+                 { 1, &HFire_resistance, "You feel warm.", "You feel cold." },
+                 { 1, &(HCold_resistance), "You feel cool.", "You feel warm." },
+                 { 1, &(HSleep_resistance), "awake", "tired" },
+                 { 1, &(HPoison_resistance), "You feel healthy.", "You feel sick." },
+                 { 1, &(HTeleport_control), "You feel controlled.", "You feel uncontrolled." },
+                 //{ 1, &HLevitation, "You float in the air.", "You descend." },
+                 { 1, &HMagical_breathing, "You can breathe air.", "You can't breathe." },
+                 { 1, &HRegeneration, "You feel vital.", "You feel less vital." },
+                 { 1, &HEnergy_regeneration, "You feel energized.", "You feel drained." },
+                 { 1, &HPolymorph_control, "You control your form.", "You lose control." },
+                 { 1, &HAcid_resistance, "You feel acidic.", "You feel basic." },
+                 { 1, &HStone_resistance, "You feel stony.", "You feel soft." },
+                 { 1, &HShock_resistance, "You feel grounded.", "You feel shocked." },
+                 { 1, &HDisint_resistance, "You feel firm.", "You feel fragile." },
+                 { 1, &HDrain_resistance, "You feel stable.", "You feel drained." },
+                 { 1, &HWarning, "You feel wary.", "You feel unwary." },
+                 { 1, &HWarn_of_mon, "You feel watchful.", "You feel unwatchful." },
+                 { 1, &HUndead_warning, "You sense the dead.", "You no longer sense the dead." },
+                 { 1, &HTelepat, "You feel telepathic.", "You feel non-telepathic." },
+                 { 1, &HSearching, "You feel alert.", "You feel unalert." },
+                 { 1, &HSee_invisible, "You see invisibly.", "You see clearly." },
+                 { 1, &HDetect_monsters, "You sense monsters.", "You sense nothing." },
+                 { 0, 0, 0, 0 } },
 
   gno_abil[] = { { 1, &HInfravision, "", "" },
+                 { 1, &HFire_resistance, "You feel warm.", "You feel cold." },
+                 { 1, &(HCold_resistance), "You feel cool.", "You feel warm." },
+                 { 1, &(HSleep_resistance), "awake", "tired" },
+                 { 1, &(HPoison_resistance), "You feel healthy.", "You feel sick." },
+                 { 1, &(HTeleport_control), "You feel controlled.", "You feel uncontrolled." },
+                 //{ 1, &HLevitation, "You float in the air.", "You descend." },
+                 { 1, &HMagical_breathing, "You can breathe air.", "You can't breathe." },
+                 { 1, &HRegeneration, "You feel vital.", "You feel less vital." },
+                 { 1, &HEnergy_regeneration, "You feel energized.", "You feel drained." },
+                 { 1, &HPolymorph_control, "You control your form.", "You lose control." },
+                 { 1, &HAcid_resistance, "You feel acidic.", "You feel basic." },
+                 { 1, &HStone_resistance, "You feel stony.", "You feel soft." },
+                 { 1, &HShock_resistance, "You feel grounded.", "You feel shocked." },
+                 { 1, &HDisint_resistance, "You feel firm.", "You feel fragile." },
+                 { 1, &HDrain_resistance, "You feel stable.", "You feel drained." },
+                 { 1, &HWarning, "You feel wary.", "You feel unwary." },
+                 { 1, &HWarn_of_mon, "You feel watchful.", "You feel unwatchful." },
+                 { 1, &HUndead_warning, "You sense the dead.", "You no longer sense the dead." },
+                 { 1, &HTelepat, "You feel telepathic.", "You feel non-telepathic." },
+                 { 1, &HSearching, "You feel alert.", "You feel unalert." },
+                 { 1, &HSee_invisible, "You see invisibly.", "You see clearly." },
+                 { 1, &HDetect_monsters, "You sense monsters.", "You sense nothing." },
                  { 0, 0, 0, 0 } },
 
   orc_abil[] = { { 1, &HInfravision, "", "" },
@@ -124,21 +292,18 @@ elf_abil[] = { { 1, &HInfravision, “”, “” },
 
   hum_abil[] = { { 0, 0, 0, 0 } };
 
-staticfn void exerper(void);
-staticfn int rnd_attr(void);
-staticfn int init_attr_role_redist(int, boolean);
-staticfn void postadjabil(long *) NONNULLARG1;
-staticfn const struct innate *role_abil(int);
-staticfn const struct innate *check_innate_abil(long *, long);
-staticfn int innately(long *);
+STATIC_DCL void NDECL(exerper);
+STATIC_DCL void FDECL(postadjabil, (long *));
+STATIC_DCL const struct innate *FDECL(role_abil, (int));
+STATIC_DCL const struct innate *FDECL(check_innate_abil, (long *, long));
+STATIC_DCL int FDECL(innately, (long *));
 
 /* adjust an attribute; return TRUE if change is made, FALSE otherwise */
 boolean
-adjattrib(
-    int ndx,    /* which characteristic */
-    int incr,   /* amount of change */
-    int msgflg) /* positive => no message, zero => message, and */
-{               /* negative => conditional (msg if change made) */
+adjattrib(ndx, incr, msgflg)
+int ndx, incr;
+int msgflg; /* positive => no message, zero => message, and */
+{           /* negative => conditional (msg if change made) */
     int old_acurr, old_abase, old_amax, decr;
     boolean abonflg;
     const char *attrstr;
@@ -207,20 +372,19 @@ adjattrib(
         return FALSE;
     }
 
-    /* Any successful change also resets abuse / exercise level */
-    AEXE(ndx) = 0;
-
-    disp.botl = TRUE;
     if (msgflg <= 0)
         You_feel("%s%s!", (incr > 1 || incr < -1) ? "very " : "", attrstr);
+    context.botl = TRUE;
     if (program_state.in_moveloop && (ndx == A_STR || ndx == A_CON))
-        encumber_msg();
+        (void) encumber_msg();
     return TRUE;
 }
 
-/* strength gain */
 void
-gainstr(struct obj *otmp, int incr, boolean givemsg)
+gainstr(otmp, incr, givemsg)
+struct obj *otmp;
+int incr;
+boolean givemsg;
 {
     int num = incr;
 
@@ -236,69 +400,29 @@ gainstr(struct obj *otmp, int incr, boolean givemsg)
                      givemsg ? -1 : 1);
 }
 
-/* strength loss, may kill you; cause may be poison or monster like 'a' */
+/* may kill you; cause may be poison or monster like 'a' */
 void
-losestr(int num, const char *knam, schar k_format)
+losestr(num)
+register int num;
 {
-    int uhpmin = minuhpmax(1), olduhpmax = u.uhpmax;
-    int ustr = ABASE(A_STR) - num, amt, dmg;
-    boolean waspolyd = Upolyd;
+    int ustr = ABASE(A_STR) - num;
 
-    if (num <= 0 || ABASE(A_STR) < ATTRMIN(A_STR)) {
-        impossible("losestr: %d - %d", ABASE(A_STR), num);
-        return;
-    }
-    dmg = 0;
-    while (ustr < ATTRMIN(A_STR)) {
+    while (ustr < 3) {
         ++ustr;
         --num;
-        amt = rn1(4, 3); /* (0..(4-1))+3 => 3..6; used to use flat 6 here */
-        dmg += amt;
-    }
-    if (dmg) {
-        /* in case damage is fatal and caller didn't supply killer reason */
-        if (!knam || !*knam) {
-            knam = "terminal frailty";
-            k_format = KILLED_BY;
-        }
-        losehp(dmg, knam, k_format);
-
         if (Upolyd) {
-            /* when still poly'd, reduce you-as-monst maxHP; never below 1 */
-            setuhpmax(max(u.mhmax - dmg, 1), FALSE); /* acts as setmhmax() */
-        } else if (!waspolyd) {
-            /* not polymorphed now and didn't rehumanize when taking damage;
-               reduce max HP, but not below uhpmin */
-            if (u.uhpmax > uhpmin)
-                setuhpmax(max(u.uhpmax - dmg, uhpmin), FALSE);
+            u.mh -= 6;
+            u.mhmax -= 6;
+        } else {
+            u.uhp -= 6;
+            u.uhpmax -= 6;
         }
-        disp.botl = TRUE;
     }
-#if 0   /* only possible if uhpmax was already less than uhpmin */
-    if (!Upolyd && u.uhpmax < uhpmin) {
-        setuhpmax(min(olduhpmax, uhpmin), FALSE);
-        if (!Drain_resistance)
-            losexp(NULL); /* won't be fatal when no 'drainer' is supplied */
-    }
-#else
-    nhUse(olduhpmax);
-#endif
-    /* 'num' could have been reduced to 0 in the minimum strength loop;
-       '(Upolyd || !waspolyd)' is True unless damage caused rehumanization */
-    if (num > 0 && (Upolyd || !waspolyd))
-        (void) adjattrib(A_STR, -num, 1);
-}
-
-/* combined strength loss and damage from some poisons */
-void
-poison_strdmg(int strloss, int dmg, const char *knam, schar k_format)
-{
-    losestr(strloss, knam, k_format);
-    losehp(dmg, knam, k_format);
+    (void) adjattrib(A_STR, -num, 1);
 }
 
 static const struct poison_effect_message {
-    void (*delivery_func)(const char *, ...);
+    void VDECL((*delivery_func), (const char *, ...));
     const char *effect_msg;
 } poiseff[] = {
     { You_feel, "weaker" },             /* A_STR */
@@ -311,10 +435,11 @@ static const struct poison_effect_message {
 
 /* feedback for attribute loss due to poisoning */
 void
-poisontell(int typ,         /* which attribute */
-           boolean exclaim) /* emphasis */
+poisontell(typ, exclaim)
+int typ;         /* which attribute */
+boolean exclaim; /* emphasis */
 {
-    void (*func)(const char *, ...) = poiseff[typ].delivery_func;
+    void VDECL((*func), (const char *, ...)) = poiseff[typ].delivery_func;
     const char *msg_txt = poiseff[typ].effect_msg;
 
     /*
@@ -334,20 +459,18 @@ poisontell(int typ,         /* which attribute */
 
 /* called when an attack or trap has poisoned hero (used to be in mon.c) */
 void
-poisoned(
-    const char *reason,    /* controls what messages we display */
-    int typ,
-    const char *pkiller,   /* for score+log file if fatal */
-    int fatal,             /* if fatal is 0, limit damage to adjattrib */
-    boolean thrown_weapon) /* thrown weapons are less deadly */
+poisoned(reason, typ, pkiller, fatal, thrown_weapon)
+const char *reason,    /* controls what messages we display */
+           *pkiller;   /* for score+log file if fatal */
+int typ, fatal;        /* if fatal is 0, limit damage to adjattrib */
+boolean thrown_weapon; /* thrown weapons are less deadly */
 {
     int i, loss, kprefix = KILLED_BY_AN;
-    boolean blast = !strcmp(reason, "blast");
 
     /* inform player about being poisoned unless that's already been done;
        "blast" has given a "blast of poison gas" message; "poison arrow",
        "poison dart", etc have implicitly given poison messages too... */
-    if (!blast && !strstri(reason, "poison")) {
+    if (strcmp(reason, "blast") && !strstri(reason, "poison")) {
         boolean plural = (reason[strlen(reason) - 1] == 's') ? 1 : 0;
 
         /* avoid "The" Orcus's sting was poisoned... */
@@ -356,15 +479,15 @@ poisoned(
               plural ? "were" : "was");
     }
     if (Poison_resistance) {
-        if (blast)
+        if (!strcmp(reason, "blast"))
             shieldeff(u.ux, u.uy);
         pline_The("poison doesn't seem to affect you.");
         return;
     }
 
     /* suppress killer prefix if it already has one */
-    i = name_to_mon(pkiller, (int *) 0);
-    if (ismnum(i) && (mons[i].geno & G_UNIQ)) {
+    i = name_to_mon(pkiller);
+    if (i >= LOW_PM && (mons[i].geno & G_UNIQ)) {
         kprefix = KILLED_BY;
         if (!type_is_pname(&mons[i]))
             pkiller = the(pkiller);
@@ -374,40 +497,15 @@ poisoned(
         kprefix = KILLED_BY;
     }
 
-    /*
-     * FIXME:
-     *  this operates on u.uhp[max] even when hero is polymorphed....
-     */
-
     i = !fatal ? 1 : rn2(fatal + (thrown_weapon ? 20 : 0));
     if (i == 0 && typ != A_CHA) {
-        /* sometimes survivable instant kill */
-        loss = 6 + d(4, 6); /* 6 + 4d6 => 10..34 */
-        if (u.uhp <= loss) {
-            u.uhp = -1;
-            disp.botl = TRUE;
-            pline_The("poison was deadly...");
-        } else {
-            /* survived, but with severe reaction */
-            int olduhp = u.uhp,
-                newuhpmax = u.uhpmax - (loss / 2);
-
-            setuhpmax(max(newuhpmax, minuhpmax(3)), TRUE); /*True: see FIXME*/
-            loss = adjuhploss(loss, olduhp);
-
-            losehp(loss, pkiller, kprefix); /* poison damage */
-            if (adjattrib(A_CON, (typ != A_CON) ? -1 : -3, TRUE))
-                poisontell(A_CON, TRUE);
-            if (typ != A_CON && adjattrib(typ, -3, 1))
-                poisontell(typ, TRUE);
-        }
+        /* instant kill */
+        u.uhp = -1;
+        context.botl = TRUE;
+        pline_The("poison was deadly...");
     } else if (i > 5) {
-        boolean cloud = !strcmp(reason, "gas cloud");
-
         /* HP damage; more likely--but less severe--with missiles */
         loss = thrown_weapon ? rnd(6) : rn1(10, 6);
-        if ((blast || cloud) && Half_gas_damage) /* worn towel */
-            loss = (loss + 1) / 2;
         losehp(loss, pkiller, kprefix); /* poison damage */
     } else {
         /* attribute loss; if typ is A_STR, reduction in current and
@@ -419,16 +517,17 @@ poisoned(
     }
 
     if (u.uhp < 1) {
-        svk.killer.format = kprefix;
-        Strcpy(svk.killer.name, pkiller);
+        killer.format = kprefix;
+        Strcpy(killer.name, pkiller);
         /* "Poisoned by a poisoned ___" is redundant */
         done(strstri(pkiller, "poison") ? DIED : POISONING);
     }
-    encumber_msg();
+    (void) encumber_msg();
 }
 
 void
-change_luck(schar n)
+change_luck(n)
+register schar n;
 {
     u.uluck += n;
     if (u.uluck < 0 && u.uluck < LUCKMIN)
@@ -437,19 +536,20 @@ change_luck(schar n)
         u.uluck = LUCKMAX;
 }
 
-/* decide whether there are more blessed luckstones (plus luck-conferring
-   artifacts) than cursed ones; optionally combine uncursed with blessed */
 int
-stone_luck(boolean include_uncursed)
+stone_luck(parameter)
+boolean parameter; /* So I can't think up of a good name.  So sue me. --KAA */
 {
-    struct obj *otmp;
-    long bonchance = 0;
+    register struct obj *otmp;
+    register long bonchance = 0;
 
-    for (otmp = gi.invent; otmp; otmp = otmp->nobj)
+    for (otmp = invent; otmp; otmp = otmp->nobj)
         if (confers_luck(otmp)) {
             if (otmp->cursed)
                 bonchance -= otmp->quan;
-            else if (otmp->blessed || include_uncursed)
+            else if (otmp->blessed)
+                bonchance += otmp->quan;
+            else if (parameter)
                 bonchance += otmp->quan;
         }
 
@@ -458,7 +558,7 @@ stone_luck(boolean include_uncursed)
 
 /* there has just been an inventory change affecting a luck-granting item */
 void
-set_moreluck(void)
+set_moreluck()
 {
     int luckbon = stone_luck(TRUE);
 
@@ -470,43 +570,38 @@ set_moreluck(void)
         u.moreluck = -LUCKADD;
 }
 
-/* (not used) */
 void
-restore_attrib(void)
+restore_attrib()
 {
     int i, equilibrium;;
 
     /*
-     * Note:  this used to get called by moveloop() on every turn but
-     * ATIME() is never set to non-zero anywhere so didn't do anything.
-     * Presumably it once supported something like potion of heroism
-     * which conferred temporary characteristics boost(s).
-     *
-     * ATEMP() is used for strength loss from hunger, which doesn't
-     * time out, and for dexterity loss from wounded legs, which has
-     * its own timeout routine.
+     * Note:  this gets called on every turn but ATIME() is never set
+     * to non-zero anywhere, and ATEMP() is only used for strength loss
+     * from hunger, so it doesn't actually do anything.
      */
 
     for (i = 0; i < A_MAX; i++) { /* all temporary losses/gains */
-        equilibrium = ((i == A_STR && u.uhs >= WEAK)
-                       || (i == A_DEX && Wounded_legs)) ? -1 : 0;
+        equilibrium = (i == A_STR && u.uhs >= WEAK) ? -1 : 0;
         if (ATEMP(i) != equilibrium && ATIME(i) != 0) {
             if (!(--(ATIME(i)))) { /* countdown for change */
                 ATEMP(i) += (ATEMP(i) > 0) ? -1 : 1;
-                disp.botl = TRUE;
+                context.botl = TRUE;
                 if (ATEMP(i)) /* reset timer */
                     ATIME(i) = 100 / ACURR(A_CON);
             }
         }
     }
-    if (disp.botl)
-        encumber_msg();
+    if (context.botl)
+        (void) encumber_msg();
 }
 
 #define AVAL 50 /* tune value for exercise gains */
 
 void
-exercise(int i, boolean inc_or_dec)
+exercise(i, inc_or_dec)
+int i;
+boolean inc_or_dec;
 {
     debugpline0("Exercise:");
     if (i == A_INT || i == A_CHA)
@@ -533,20 +628,23 @@ exercise(int i, boolean inc_or_dec)
                                                                       : "Con",
                     (inc_or_dec) ? "inc" : "dec", AEXE(i));
     }
-    if (svm.moves > 0 && (i == A_STR || i == A_CON))
-        encumber_msg();
+    if (moves > 0 && (i == A_STR || i == A_CON))
+        (void) encumber_msg();
 }
 
-staticfn void
-exerper(void)
+STATIC_OVL void
+exerper()
 {
-    if (!(svm.moves % 10)) {
+    if (!(moves % 10)) {
         /* Hunger Checks */
-        int hs = (u.uhunger > 1000) ? SATIATED
-                 : (u.uhunger > 150) ? NOT_HUNGRY
-                   : (u.uhunger > 50) ? HUNGRY
-                     : (u.uhunger > 0) ? WEAK
-                       : FAINTING;
+
+        int hs = (u.uhunger > 1000) ? SATIATED : (u.uhunger > 150)
+                                                     ? NOT_HUNGRY
+                                                     : (u.uhunger > 50)
+                                                           ? HUNGRY
+                                                           : (u.uhunger > 0)
+                                                                 ? WEAK
+                                                                 : FAINTING;
 
         debugpline0("exerper: Hunger checks");
         switch (hs) {
@@ -587,7 +685,7 @@ exerper(void)
     }
 
     /* status checks */
-    if (!(svm.moves % 5)) {
+    if (!(moves % 5)) {
         debugpline0("exerper: Status checks");
         if ((HClairvoyant & (INTRINSIC | TIMEOUT)) && !BClairvoyant)
             exercise(A_WIS, TRUE);
@@ -615,18 +713,18 @@ static NEARDATA const char *const exertext[A_MAX][2] = {
 };
 
 void
-exerchk(void)
+exerchk()
 {
     int i, ax, mod_val, lolim, hilim;
 
     /*  Check out the periodic accumulations */
     exerper();
 
-    if (svm.moves >= svc.context.next_attrib_check) {
-        debugpline1("exerchk: ready to test. multi = %ld.", gm.multi);
+    if (moves >= context.next_attrib_check) {
+        debugpline1("exerchk: ready to test. multi = %d.", multi);
     }
     /*  Are we ready for a test? */
-    if (svm.moves >= svc.context.next_attrib_check && !gm.multi) {
+    if (moves >= context.next_attrib_check && !multi) {
         debugpline0("exerchk: testing.");
         /*
          *      Law of diminishing returns (Part II):
@@ -658,13 +756,19 @@ exerchk(void)
                 goto nextattrib;
 
             debugpline2("exerchk: testing %s (%d).",
-                        (i == A_STR) ? "Str"
-                        : (i == A_INT) ? "Int?"
-                          : (i == A_WIS) ? "Wis"
-                            : (i == A_DEX) ? "Dex"
-                              : (i == A_CON) ? "Con"
-                                : (i == A_CHA) ? "Cha?"
-                                  : "???",
+                        (i == A_STR)
+                            ? "Str"
+                            : (i == A_INT)
+                                  ? "Int?"
+                                  : (i == A_WIS)
+                                        ? "Wis"
+                                        : (i == A_DEX)
+                                              ? "Dex"
+                                              : (i == A_CON)
+                                                    ? "Con"
+                                                    : (i == A_CHA)
+                                                          ? "Cha?"
+                                                          : "???",
                         ax);
             /*
              *  Law of diminishing returns (Part III):
@@ -690,76 +794,65 @@ exerchk(void)
                platform-dependent rounding/truncation for negative vals */
             AEXE(i) = (abs(ax) / 2) * mod_val;
         }
-        svc.context.next_attrib_check += rn1(200, 800);
-        debugpline1("exerchk: next check at %ld.",
-                    svc.context.next_attrib_check);
+        context.next_attrib_check += rn1(200, 800);
+        debugpline1("exerchk: next check at %ld.", context.next_attrib_check);
     }
 }
 
-/* return random hero attribute (by role's attr distribution).
-   returns A_MAX if failed. */
-staticfn int
-rnd_attr(void)
+void
+init_attr(np)
+register int np;
 {
-    int i, x = rn2(100);
+    register int i, x, tryct;
 
-    /* 3.7: the x -= ... calculation used to have an off by 1 error that
-       resulted in the values being biased toward Str and away from Cha */
-    for (i = 0; i < A_MAX; ++i)
-        if ((x -= gu.urole.attrdist[i]) < 0)
-            break;
-    return i;
-}
+    for (i = 0; i < A_MAX; i++) {
+        ABASE(i) = AMAX(i) = urole.attrbase[i];
+        ATEMP(i) = ATIME(i) = 0;
+        np -= urole.attrbase[i];
+    }
 
-/* add or subtract np points from random attributes,
-   adjusting the base and maximum values of the attributes.
-   if subtracting, np must be negative.
-   returns the left over points. */
-staticfn int
-init_attr_role_redist(int np, boolean addition)
-{
-    int tryct = 0;
-    int adj = addition ? 1 : -1;
+    tryct = 0;
+    while (np > 0 && tryct < 100) {
+        x = rn2(100);
+        for (i = 0; (i < A_MAX) && ((x -= urole.attrdist[i]) > 0); i++)
+            ;
+        if (i >= A_MAX)
+            continue; /* impossible */
 
-    while ((addition ? (np > 0) : (np < 0)) && tryct < 100) {
-        int i = rnd_attr();
-
-        if (i >= A_MAX
-            || (addition ? (ABASE(i) >= ATTRMAX(i))
-                         : (ABASE(i) <= ATTRMIN(i)))) {
+        if (ABASE(i) >= ATTRMAX(i)) {
             tryct++;
             continue;
         }
         tryct = 0;
-        ABASE(i) += adj;
-        AMAX(i) += adj;
-        np -= adj;
-    }
-    return np;
-}
-
-/* allocate hero's initial characteristics */
-void
-init_attr(int np)
-{
-    int i;
-
-    for (i = 0; i < A_MAX; i++) {
-        ABASE(i) = AMAX(i) = gu.urole.attrbase[i];
-        ATEMP(i) = ATIME(i) = 0;
-        np -= gu.urole.attrbase[i];
+        ABASE(i)++;
+        AMAX(i)++;
+        np--;
     }
 
-    /* distribute leftover points */
-    np = init_attr_role_redist(np, TRUE);
-    /* if we went over, remove points */
-    np = init_attr_role_redist(np, FALSE);
+    tryct = 0;
+    while (np < 0 && tryct < 100) { /* for redistribution */
+
+        x = rn2(100);
+        for (i = 0; (i < A_MAX) && ((x -= urole.attrdist[i]) > 0); i++)
+            ;
+        if (i >= A_MAX)
+            continue; /* impossible */
+
+        if (ABASE(i) <= ATTRMIN(i)) {
+            tryct++;
+            continue;
+        }
+        tryct = 0;
+        ABASE(i)--;
+        AMAX(i)--;
+        np++;
+    }
 }
 
 void
-redist_attr(void)
+redist_attr()
 {
-    int i, tmp;
+    register int i, tmp;
 
     for (i = 0; i < A_MAX; i++) {
         if (i == A_INT || i == A_WIS)
@@ -776,37 +869,23 @@ redist_attr(void)
         if (ABASE(i) < ATTRMIN(i))
             ABASE(i) = ATTRMIN(i);
     }
-    /* encumber_msg(); -- caller needs to do this */
+    (void) encumber_msg();
 }
 
-/* apply minor variation to attributes */
+STATIC_OVL
 void
-vary_init_attr(void)
+postadjabil(ability)
+long *ability;
 {
-    int i;
-
-    for (i = 0; i < A_MAX; i++)
-        if (!rn2(20)) {
-            int xd = rn2(7) - 2; /* biased variation */
-
-            (void) adjattrib(i, xd, TRUE);
-            if (ABASE(i) < AMAX(i))
-                AMAX(i) = ABASE(i);
-        }
-}
-
-staticfn
-void
-postadjabil(long *ability)
-{
-    if (!u.ulevel) /* initializing hero; don't attempt screen update yet */
+    if (!ability)
         return;
     if (ability == &(HWarning) || ability == &(HSee_invisible))
         see_monsters();
 }
 
-staticfn const struct innate *
-role_abil(int r)
+STATIC_OVL const struct innate *
+role_abil(r)
+int r;
 {
     const struct {
         short role;
@@ -814,11 +893,11 @@ role_abil(int r)
     } roleabils[] = {
         { PM_ARCHEOLOGIST, arc_abil },
         { PM_BARBARIAN, bar_abil },
-        { PM_CAVE_DWELLER, cav_abil },
+        { PM_CAVEMAN, cav_abil },
         { PM_HEALER, hea_abil },
         { PM_KNIGHT, kni_abil },
         { PM_MONK, mon_abil },
-        { PM_CLERIC, pri_abil },
+        { PM_PRIEST, pri_abil },
         { PM_RANGER, ran_abil },
         { PM_ROGUE, rog_abil },
         { PM_SAMURAI, sam_abil },
@@ -834,8 +913,10 @@ role_abil(int r)
     return roleabils[i].abil;
 }
 
-staticfn const struct innate *
-check_innate_abil(long *ability, long frommask)
+STATIC_OVL const struct innate *
+check_innate_abil(ability, frommask)
+long *ability;
+long frommask;
 {
     const struct innate *abil = 0;
 
@@ -880,8 +961,9 @@ check_innate_abil(long *ability, long frommask)
 #define FROM_LYCN 6
 
 /* check whether particular ability has been obtained via innate attribute */
-staticfn int
-innately(long *ability)
+STATIC_OVL int
+innately(ability)
+long *ability;
 {
     const struct innate *iptr;
 
@@ -897,12 +979,13 @@ innately(long *ability)
 }
 
 int
-is_innate(int propidx)
+is_innate(propidx)
+int propidx;
 {
     int innateness;
 
     /* innately() would report FROM_FORM for this; caller wants specificity */
-    if (propidx == DRAIN_RES && ismnum(u.ulycn))
+    if (propidx == DRAIN_RES && u.ulycn >= LOW_PM)
         return FROM_LYCN;
     if (propidx == FAST && Very_fast)
         return FROM_NONE; /* can't become very fast innately */
@@ -913,17 +996,14 @@ is_innate(int propidx)
            ignore innateness if equipment is going to claim responsibility */
         && !u.uprops[propidx].extrinsic)
         return FROM_ROLE;
-    if ((propidx == BLINDED && !haseyes(gy.youmonst.data))
-        || (propidx == BLND_RES && (HBlnd_resist & FROMFORM) != 0))
+    if (propidx == BLINDED && !haseyes(youmonst.data))
         return FROM_FORM;
     return FROM_NONE;
 }
 
-DISABLE_WARNING_FORMAT_NONLITERAL
-
 char *
-from_what(
-    int propidx) /* special cases can have negative values */
+from_what(propidx)
+int propidx; /* special cases can have negative values */
 {
     static char buf[BUFSZ];
 
@@ -953,8 +1033,7 @@ from_what(
              * There are exceptions.  Versatile jumping from spell or boots
              * takes priority over knight's innate but limited jumping.
              */
-            if ((propidx == BLINDED && u.uroleplay.blind)
-                || (propidx == DEAF && u.uroleplay.deaf))
+            if (propidx == BLINDED && u.uroleplay.blind)
                 Sprintf(buf, " from birth");
             else if (innateness == FROM_ROLE || innateness == FROM_RACE)
                 Strcpy(buf, " innately");
@@ -965,7 +1044,7 @@ from_what(
             else if (innateness == FROM_LYCN)
                 Strcpy(buf, " due to your lycanthropy");
             else if (innateness == FROM_FORM)
-                Strcpy(buf, " from your creature form");
+                Strcpy(buf, " from current creature form");
             else if (propidx == FAST && Very_fast)
                 Sprintf(buf, because_of,
                         ((HFast & TIMEOUT) != 0L) ? "a potion or spell"
@@ -981,11 +1060,6 @@ from_what(
                                              : ysimple_name(obj));
             else if (propidx == BLINDED && Blindfolded_only)
                 Sprintf(buf, because_of, ysimple_name(ublindf));
-            else if (propidx == BLINDED && u.ucreamed
-                     && BlindedTimeout == (long) u.ucreamed
-                     && !EBlinded && !(HBlinded & ~TIMEOUT))
-                Sprintf(buf, "due to goop covering your %s",
-                        body_part(FACE));
 
             /* remove some verbosity and/or redundancy */
             if ((p = strstri(buf, " pair of ")) != 0)
@@ -999,8 +1073,8 @@ from_what(
                replace this with what_blocks() comparable to what_gives() */
             switch (-propidx) {
             case BLINDED:
-                /* wearing the Eyes of the Overworld overrides blindness */
-                if (BBlinded && is_art(ublindf, ART_EYES_OF_THE_OVERWORLD))
+                if (ublindf
+                    && ublindf->oartifact == ART_EYES_OF_THE_OVERWORLD)
                     Sprintf(buf, because_of, bare_artifactname(ublindf));
                 break;
             case INVIS:
@@ -1020,12 +1094,11 @@ from_what(
     return buf;
 }
 
-RESTORE_WARNING_FORMAT_NONLITERAL
-
 void
-adjabil(int oldlevel, int newlevel)
+adjabil(oldlevel, newlevel)
+int oldlevel, newlevel;
 {
-    const struct innate *abil, *rabil;
+    register const struct innate *abil, *rabil;
     long prevabil, mask = FROMEXPER;
 
     abil = role_abil(Role_switch);
@@ -1093,40 +1166,37 @@ adjabil(int oldlevel, int newlevel)
     }
 }
 
-/* called when gaining a level (before u.ulevel gets incremented);
-   also called with u.ulevel==0 during hero initialization or for
-   re-init if hero turns into a "new man/woman/elf/&c" */
 int
-newhp(void)
+newhp()
 {
     int hp, conplus;
 
     if (u.ulevel == 0) {
         /* Initialize hit points */
-        hp = gu.urole.hpadv.infix + gu.urace.hpadv.infix;
-        if (gu.urole.hpadv.inrnd > 0)
-            hp += rnd(gu.urole.hpadv.inrnd);
-        if (gu.urace.hpadv.inrnd > 0)
-            hp += rnd(gu.urace.hpadv.inrnd);
-        if (svm.moves == 0) { /* initial hero; skip for polyself to new man */
+        hp = urole.hpadv.infix + urace.hpadv.infix;
+        if (urole.hpadv.inrnd > 0)
+            hp += rnd(urole.hpadv.inrnd);
+        if (urace.hpadv.inrnd > 0)
+            hp += rnd(urace.hpadv.inrnd);
+        if (moves <= 1L) { /* initial hero; skip for polyself to new man */
             /* Initialize alignment stuff */
             u.ualign.type = aligns[flags.initalign].value;
-            u.ualign.record = gu.urole.initrecord;
+            u.ualign.record = urole.initrecord;
         }
         /* no Con adjustment for initial hit points */
     } else {
-        if (u.ulevel < gu.urole.xlev) {
-            hp = gu.urole.hpadv.lofix + gu.urace.hpadv.lofix;
-            if (gu.urole.hpadv.lornd > 0)
-                hp += rnd(gu.urole.hpadv.lornd);
-            if (gu.urace.hpadv.lornd > 0)
-                hp += rnd(gu.urace.hpadv.lornd);
+        if (u.ulevel < urole.xlev) {
+            hp = urole.hpadv.lofix + urace.hpadv.lofix;
+            if (urole.hpadv.lornd > 0)
+                hp += rnd(urole.hpadv.lornd);
+            if (urace.hpadv.lornd > 0)
+                hp += rnd(urace.hpadv.lornd);
         } else {
-            hp = gu.urole.hpadv.hifix + gu.urace.hpadv.hifix;
-            if (gu.urole.hpadv.hirnd > 0)
-                hp += rnd(gu.urole.hpadv.hirnd);
-            if (gu.urace.hpadv.hirnd > 0)
-                hp += rnd(gu.urace.hpadv.hirnd);
+            hp = urole.hpadv.hifix + urace.hpadv.hifix;
+            if (urole.hpadv.hirnd > 0)
+                hp += rnd(urole.hpadv.hirnd);
+            if (urace.hpadv.hirnd > 0)
+                hp += rnd(urace.hpadv.hirnd);
         }
         if (ACURR(A_CON) <= 3)
             conplus = -2;
@@ -1146,147 +1216,69 @@ newhp(void)
     }
     if (hp <= 0)
         hp = 1;
-    if (u.ulevel < MAXULEV) {
-        /* remember increment; future level drain could take it away again */
-        u.uhpinc[u.ulevel] = (xint16) hp;
-    } else {
-        /* after level 30, throttle hit point gains from extra experience;
-           once max reaches 1200, further increments will be just 1 more */
-        char lim = 5 - u.uhpmax / 300;
-
-        lim = max(lim, 1);
-        if (hp > lim)
-            hp = lim;
-    }
+    if (u.ulevel < MAXULEV)
+        u.uhpinc[u.ulevel] = (xchar) hp;
     return hp;
 }
 
-/* minimum value for uhpmax is ulevel but for life-saving it is always at
-   least 10 if ulevel is less than that */
-int
-minuhpmax(int altmin)
-{
-    if (altmin < 1)
-        altmin = 1;
-    return max(u.ulevel, altmin);
-}
-
-/* update u.uhpmax or u.mhmax and values of other things that depend upon
-   whichever of them is relevant */
-void
-setuhpmax(int newmax, boolean even_when_polyd)
-{
-    if (!Upolyd || even_when_polyd) {
-        if (newmax != u.uhpmax) {
-            u.uhpmax = newmax;
-            if (u.uhpmax > u.uhppeak)
-                u.uhppeak = u.uhpmax;
-            disp.botl = TRUE;
-        }
-        if (u.uhp > u.uhpmax)
-            u.uhp = u.uhpmax, disp.botl = TRUE;
-    } else { /* Upolyd */
-        if (newmax != u.mhmax) {
-            u.mhmax = newmax;
-            disp.botl = TRUE;
-        }
-        if (u.mh > u.mhmax)
-            u.mh = u.mhmax, disp.botl = TRUE;
-    }
-}
-
-/* called after setuhpmax() when damage is pending;
-   if uhpmax (or mhmax) has been reduced, it might have caused uhp (or mh)
-   to be reduced too; if so, recalculate pending loss to account for that */
-int
-adjuhploss(
-    int loss, /* pending hp loss */
-    int olduhp) /* does double duty as oldmh when Upolyd */
-{
-    if (!Upolyd) {
-        if (u.uhp < olduhp)
-            loss -= (olduhp - u.uhp);
-    } else {
-        if (u.mh < olduhp)
-            loss -= (olduhp - u.mh);
-    }
-    return max(loss, 1);
-}
-
-/* return the current effective value of a specific characteristic
-   (the 'a' in 'acurr()' comes from outdated use of "attribute" for the
-   six Str/Dex/&c characteristics; likewise for u.abon, u.atemp, u.acurr) */
 schar
-acurr(int chridx)
+acurr(x)
+int x;
 {
-    int tmp, result = 0; /* 'result' will always be reset to positive value */
+    register int tmp = (u.abon.a[x] + u.atemp.a[x] + u.acurr.a[x]);
 
-    assert(chridx >= 0 && chridx < A_MAX);
-    tmp = u.abon.a[chridx] + u.atemp.a[chridx] + u.acurr.a[chridx];
-
-    /* for Strength:  3 <= result <= 125;
-       for all others:  3 <= result <= 25 */
-    if (chridx == A_STR) {
-        /* strength value is encoded:  3..18 normal, 19..118 for 18/xx (with
-           1 <= xx <= 100), and 119..125 for other characteristics' 19..25;
-           STR18(x) yields 18 + x (intended for 0 <= x <= 100; not used here);
-           STR19(y) yields 100 + y (intended for 19 <= y <= 25) */
-        if (tmp >= STR19(25) || (uarmg && uarmg->otyp == GAUNTLETS_OF_POWER))
-            result = STR19(25); /* 125 */
+    if (x == A_STR) {
+        if (tmp >= 125 || (uarmg && uarmg->otyp == GAUNTLETS_OF_POWER))
+            return (schar) 125;
         else
-            /* need non-zero here to avoid 'if(result==0)' below because
-               that doesn't deal with Str encoding; the cap of 25 applied
-               there would limit Str to 18/07 [18 + 7] */
-            result = max(tmp, 3);
-    } else if (chridx == A_CHA) {
-        if (tmp < 18 && (gy.youmonst.data->mlet == S_NYMPH
-                         || u.umonnum == PM_AMOROUS_DEMON))
-            result = 18;
-    } else if (chridx == A_CON) {
-        if (u_wield_art(ART_OGRESMASHER))
-            result = 25;
-    } else if (chridx == A_INT || chridx == A_WIS) {
-        /* Yes, this may raise Int and/or Wis if hero is sufficiently
-           stupid.  There are lower levels of cognition than "dunce". */
+#ifdef WIN32_BUG
+            return (x = ((tmp <= 3) ? 3 : tmp));
+#else
+            return (schar) ((tmp <= 3) ? 3 : tmp);
+#endif
+    } else if (x == A_CHA) {
+        if (tmp < 18
+            && (youmonst.data->mlet == S_NYMPH || u.umonnum == PM_SUCCUBUS
+                || u.umonnum == PM_INCUBUS))
+            return (schar) 18;
+    } else if (x == A_CON) {
+        if (uwep && uwep->oartifact == ART_OGRESMASHER)
+            return (schar) 25;
+    } else if (x == A_INT || x == A_WIS) {
+        /* yes, this may raise int/wis if player is sufficiently
+         * stupid.  there are lower levels of cognition than "dunce".
+         */
         if (uarmh && uarmh->otyp == DUNCE_CAP)
-            result = 6;
-    } else if (chridx == A_DEX) {
-        ; /* there aren't any special cases for dexterity */
+            return (schar) 6;
     }
-
-    if (result == 0) /* none of the special cases applied */
-        result = (tmp >= 25) ? 25 : (tmp <= 3) ? 3 : tmp;
-
-    return (schar) result;
+#ifdef WIN32_BUG
+    return (x = ((tmp >= 25) ? 25 : (tmp <= 3) ? 3 : tmp));
+#else
+    return (schar) ((tmp >= 25) ? 25 : (tmp <= 3) ? 3 : tmp);
+#endif
 }
 
-/* condense clumsy ACURR(A_STR) value into value that fits into formulas */
+/* condense clumsy ACURR(A_STR) value into value that fits into game formulas
+ */
 schar
-acurrstr(void)
+acurrstr()
 {
-    int str = ACURR(A_STR), /* 3..125 after massaging by acurr() */
-        result; /* 3..25 */
+    register int str = ACURR(A_STR);
 
-    if (str <= STR18(0)) /* <= 18; max(,3) here is redundant */
-        result = max(str, 3); /* 3..18 */
-    else if (str <= STR19(21)) /* <= 121 */
-        /* this converts
-           18/01..18/31 into 19,
-           18/32..18/81 into 20,
-           18/82..18/100 and 19..21 into 21 */
-        result = 19 + str / 50; /* map to 19..21 */
-    else /* convert 122..125; min(,125) here is redundant */
-        result = min(str, 125) - 100; /* 22..25 */
-
-    return (schar) result;
+    if (str <= 18)
+        return (schar) str;
+    if (str <= 121)
+        return (schar) (19 + str / 50); /* map to 19..21 */
+    else
+        return (schar) (min(str, 125) - 100); /* 22..25 */
 }
 
 /* when wearing (or taking off) an unID'd item, this routine is used
    to distinguish between observable +0 result and no-visible-effect
    due to an attribute not being able to exceed maximum or minimum */
 boolean
-extremeattr(
-    int attrindx) /* does attrindx's value match its max or min? */
+extremeattr(attrindx) /* does attrindx's value match its max or min? */
+int attrindx;
 {
     /* Fixed_abil and racial MINATTR/MAXATTR aren't relevant here */
     int lolimit = 3, hilimit = 25, curval = ACURR(attrindx);
@@ -1298,7 +1290,7 @@ extremeattr(
         if (uarmg && uarmg->otyp == GAUNTLETS_OF_POWER)
             lolimit = hilimit;
     } else if (attrindx == A_CON) {
-        if (u_wield_art(ART_OGRESMASHER))
+        if (uwep && uwep->oartifact == ART_OGRESMASHER)
             lolimit = hilimit;
     }
     /* this exception is hypothetical; the only other worn item affecting
@@ -1315,42 +1307,35 @@ extremeattr(
 /* avoid possible problems with alignment overflow, and provide a centralized
    location for any future alignment limits */
 void
-adjalign(int n)
+adjalign(n)
+int n;
 {
     int newalign = u.ualign.record + n;
 
     if (n < 0) {
-        unsigned newabuse = u.ualign.abuse - n;
-
         if (newalign < u.ualign.record)
             u.ualign.record = newalign;
-        if (newabuse > u.ualign.abuse) {
-            u.ualign.abuse = newabuse;
-            adj_erinys(newabuse);
-        }
     } else if (newalign > u.ualign.record) {
         u.ualign.record = newalign;
         if (u.ualign.record > ALIGNLIM)
-            u.ualign.record = (int)ALIGNLIM;
+            u.ualign.record = ALIGNLIM;
     }
 }
 
 /* change hero's alignment type, possibly losing use of artifacts */
 void
-uchangealign(
-    int newalign,
-    int reason) /* A_CG_CONVERT, A_CG_HELM_ON, or A_CG_HELM_OFF */
+uchangealign(newalign, reason)
+int newalign;
+int reason; /* 0==conversion, 1==helm-of-OA on, 2==helm-of-OA off */
 {
     aligntyp oldalign = u.ualign.type;
 
     u.ublessed = 0; /* lose divine protection */
     /* You/Your/pline message with call flush_screen(), triggering bot(),
        so the actual data change needs to come before the message */
-    disp.botl = TRUE; /* status line needs updating */
-    if (reason == A_CG_CONVERT) {
+    context.botl = TRUE; /* status line needs updating */
+    if (reason == 0) {
         /* conversion via altar */
-        livelog_printf(LL_ALIGNMENT, "permanently converted to %s",
-                       aligns[1 - newalign].adj);
         u.ualignbase[A_CURRENT] = (aligntyp) newalign;
         /* worn helm of opposite alignment might block change */
         if (!uarmh || uarmh->otyp != HELM_OF_OPPOSITE_ALIGNMENT)
@@ -1360,20 +1345,12 @@ uchangealign(
     } else {
         /* putting on or taking off a helm of opposite alignment */
         u.ualign.type = (aligntyp) newalign;
-        if (reason == A_CG_HELM_ON) {
-            adjalign(-7); /* for abuse -- record will be cleared shortly */
+        if (reason == 1)
             Your("mind oscillates %s.", Hallucination ? "wildly" : "briefly");
-            make_confused(rn1(2, 3), FALSE);
-            if (Is_astralevel(&u.uz) || ((unsigned) rn2(50) < u.ualign.abuse))
-                summon_furies(Is_astralevel(&u.uz) ? 0 : 1);
-            /* don't livelog taking it back off */
-            livelog_printf(LL_ALIGNMENT, "used a helm to turn %s",
-                           aligns[1 - newalign].adj);
-        } else if (reason == A_CG_HELM_OFF) {
+        else if (reason == 2)
             Your("mind is %s.", Hallucination
                                     ? "much of a muchness"
                                     : "back in sync with your body");
-        }
     }
     if (u.ualign.type != oldalign) {
         u.ualign.record = 0; /* slate is wiped clean */
@@ -1382,3 +1359,4 @@ uchangealign(
 }
 
 /*attrib.c*/
+
